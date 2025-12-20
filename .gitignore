@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+streamdeck-plugin/com.securepress.action.sdPlugin/
+*.streamDeckPlugin
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+temp-extract/
+*.backup
+nul
+
+# Claude/AI cache
+.claude/

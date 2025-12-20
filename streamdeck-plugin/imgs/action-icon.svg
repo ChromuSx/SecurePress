@@ -1,0 +1,19 @@
+<svg width="144" height="144" viewBox="0 0 144 144" xmlns="http://www.w3.org/2000/svg">
+  <!-- White stroke icon for Stream Deck action list (Elgato guidelines) -->
+
+  <!-- Shield outline - EXTRA WIDE to fill space -->
+  <path d="M 72 8 L 28 22 L 28 74 Q 28 120 72 136 Q 116 120 116 74 L 116 22 Z"
+        fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linejoin="round"/>
+
+  <!-- Lock body - much wider -->
+  <rect x="52" y="72" width="40" height="42" rx="5"
+        fill="none" stroke="#FFFFFF" stroke-width="6"/>
+
+  <!-- Lock shackle (semicircle on top) - extra wide -->
+  <path d="M 58 72 L 58 54 Q 58 40 72 40 Q 86 40 86 54 L 86 72"
+        fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Keyhole - larger and more visible -->
+  <circle cx="72" cy="86" r="5" fill="#FFFFFF"/>
+  <line x1="72" y1="91" x2="72" y2="102" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+</svg>

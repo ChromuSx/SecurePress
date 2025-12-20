@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SecurePress Configuration</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            font-size: 13px;
+            color: #d8d8d8;
+            background-color: #2d2d2d;
+        }
+
+        .sdpi-wrapper {
+            max-width: 100%;
+        }
+
+        .sdpi-item {
+            margin-bottom: 16px;
+        }
+
+        .sdpi-item-label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #9d9d9d;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        select, input[type="text"], input[type="number"], textarea {
+            width: 100%;
+            padding: 8px 10px;
+            background-color: #3a3a3a;
+            border: 1px solid #515151;
+            border-radius: 4px;
+            color: #d8d8d8;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        select:focus, input:focus, textarea:focus {
+            outline: none;
+            border-color: #0e6dbb;
+            background-color: #404040;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+
+        input[type="checkbox"] {
+            margin-right: 8px;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+        }
+
+        .checkbox-wrapper label {
+            color: #d8d8d8;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .info-text {
+            font-size: 11px;
+            color: #7a7a7a;
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0e6dbb;
+            margin: 20px 0 12px 0;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #515151;
+        }
+
+        button {
+            padding: 8px 16px;
+            background-color: #0e6dbb;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background-color: #1177cc;
+        }
+
+        button:active {
+            background-color: #0a5599;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="sdpi-wrapper">
+        <!-- Debug Status Indicator -->
+        <div id="debugStatus" style="background: #2d2d2d; color: #ffcc00; padding: 8px; margin-bottom: 10px; border-radius: 4px; font-size: 11px; text-align: center;">
+            ⏳ Connecting...
+        </div>
+
+        <!-- Reload Button (workaround for connection issues) -->
+        <div id="reloadButtonContainer" class="hidden" style="margin-bottom: 10px; text-align: center;">
+            <button onclick="location.reload()" style="background-color: #ff6600;">
+                🔄 Reload Property Inspector
+            </button>
+            <div class="info-text" style="text-align: center; margin-top: 4px;">
+                Click if settings are not loading properly
+            </div>
+        </div>
+
+        <!-- Debug Log (visible for troubleshooting) -->
+        <details style="margin-bottom: 10px;">
+            <summary style="cursor: pointer; color: #9d9d9d; font-size: 11px; padding: 4px;">🐛 Debug Log (click to expand)</summary>
+            <div id="debugLog" style="background: #1a1a1a; color: #00ff00; padding: 8px; margin-top: 4px; border-radius: 4px; font-size: 10px; font-family: 'Consolas', monospace; max-height: 200px; overflow-y: auto;">
+                <!-- Debug messages will appear here -->
+            </div>
+        </details>
+
+        <!-- Action Type Selection -->
+        <div class="sdpi-item">
+            <label class="sdpi-item-label" for="actionType">Action Type</label>
+            <select id="actionType">
+                <option value="program">Execute Program</option>
+                <option value="hotkey">Simulate Hotkey</option>
+                <option value="script">Execute Script</option>
+                <option value="http">HTTP Request</option>
+                <option value="text">Text Input</option>
+                <option value="sequence">Multi-Command Sequence</option>
+            </select>
+        </div>
+
+        <!-- Program Settings -->
+        <div id="programSettings" class="hidden">
+            <div class="section-title">Program Settings</div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="programPath">Program Path *</label>
+                <input type="text" id="programPath" placeholder="C:\Program Files\MyApp\app.exe">
+                <div class="info-text">Full path to the executable file</div>
+            </div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="programArgs">Arguments (optional)</label>
+                <input type="text" id="programArgs" placeholder="--start --mode=stream">
+                <div class="info-text">Command line arguments for the program</div>
+            </div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="workingDirectory">Working Directory (optional)</label>
+                <input type="text" id="workingDirectory" placeholder="C:\MyApp">
+            </div>
+        </div>
+
+        <!-- Hotkey Settings -->
+        <div id="hotkeySettings" class="hidden">
+            <div class="section-title">Hotkey Settings</div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="hotkeyKeys">Hotkey Combination *</label>
+                <input type="text" id="hotkeyKeys" placeholder="Ctrl+Alt+S">
+                <div class="info-text">Examples: Ctrl+C, Alt+Tab, Ctrl+Shift+Esc, Win+D, F5</div>
+            </div>
+        </div>
+
+        <!-- Script Settings -->
+        <div id="scriptSettings" class="hidden">
+            <div class="section-title">Script Settings</div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="scriptType">Script Type</label>
+                <select id="scriptType">
+                    <option value="powershell">PowerShell</option>
+                    <option value="batch">Batch (.bat)</option>
+                    <option value="python">Python</option>
+                </select>
+            </div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="scriptContent">Script Content *</label>
+                <textarea id="scriptContent" placeholder="Write-Host 'Hello from SecurePress!'"></textarea>
+                <div class="info-text">The script code to execute</div>
+            </div>
+        </div>
+
+        <!-- HTTP Settings -->
+        <div id="httpSettings" class="hidden">
+            <div class="section-title">HTTP Request Settings</div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="httpUrl">URL *</label>
+                <input type="text" id="httpUrl" placeholder="http://localhost:8080/api/action">
+            </div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="httpMethod">Method</label>
+                <select id="httpMethod">
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                </select>
+            </div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="httpBody">Body (optional)</label>
+                <textarea id="httpBody" placeholder='{"action": "start", "mode": "streaming"}'></textarea>
+                <div class="info-text">Request body (JSON format for POST/PUT)</div>
+            </div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="httpHeaders">Custom Headers (optional)</label>
+                <textarea id="httpHeaders" placeholder='{"Authorization": "Bearer token123"}'></textarea>
+                <div class="info-text">Additional headers in JSON format</div>
+            </div>
+
+            <div class="sdpi-item">
+                <div class="sdpi-item-label">Show Response Popup</div>
+                <input type="checkbox" id="httpShowResponse">
+                <label for="httpShowResponse" class="sdpi-item-label">Display HTTP response in a popup window</label>
+            </div>
+        </div>
+
+        <!-- Text Settings -->
+        <div id="textSettings" class="hidden">
+            <div class="section-title">Text Input Settings</div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="textContent">Text to Type *</label>
+                <textarea id="textContent" placeholder="Hello, World!"></textarea>
+                <div class="info-text">The text that will be typed or pasted</div>
+            </div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="textMode">Input Mode</label>
+                <select id="textMode">
+                    <option value="type">Simulate Typing (character by character)</option>
+                    <option value="paste">Paste from Clipboard (faster, better for long text)</option>
+                </select>
+                <div class="info-text">How to input the text</div>
+            </div>
+
+            <div class="sdpi-item">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="textPressEnter">
+                    <label for="textPressEnter">Press Enter after typing</label>
+                </div>
+                <div class="info-text">Automatically press Enter key after the text is input</div>
+            </div>
+        </div>
+
+        <!-- Sequence Settings -->
+        <div id="sequenceSettings" class="hidden">
+            <div class="section-title">Sequence Settings</div>
+
+            <div class="info-text" style="margin-bottom: 12px;">
+                Note: Sequence configuration currently requires manual JSON editing in the settings file.
+                This will be improved in a future version with a visual sequence builder.
+            </div>
+
+            <div class="sdpi-item">
+                <label class="sdpi-item-label" for="sequenceActions">Sequence JSON *</label>
+                <textarea id="sequenceActions" rows="10" placeholder='[
+  {
+    "type": "program",
+    "programPath": "C:\\MyApp\\app.exe"
+  },
+  {
+    "type": "delay",
+    "delayMs": 2000
+  },
+  {
+    "type": "hotkey",
+    "hotkeyKeys": "Ctrl+M"
+  }
+]'></textarea>
+                <div class="info-text">Array of actions to execute in sequence</div>
+            </div>
+        </div>
+
+        <!-- Authentication Settings -->
+        <div class="section-title">Windows Hello Authentication</div>
+
+        <div class="sdpi-item">
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="requireAuthEveryTime">
+                <label for="requireAuthEveryTime">Require authentication every time</label>
+            </div>
+            <div class="info-text">If unchecked, authentication will be cached for the session duration below</div>
+        </div>
+
+        <div class="sdpi-item" id="sessionDurationWrapper">
+            <label class="sdpi-item-label" for="sessionDurationMinutes">Session Duration (minutes)</label>
+            <input type="number" id="sessionDurationMinutes" value="5" min="1" max="60">
+            <div class="info-text">How long to remember authentication (1-60 minutes)</div>
+        </div>
+
+        <!-- Info Section -->
+        <div class="section-title">Information</div>
+        <div class="info-text" style="line-height: 1.5;">
+            SecurePress protects your Stream Deck actions with Windows Hello authentication (PIN, fingerprint, or facial recognition).
+            <br><br>
+            Configure your action above, then press the button on your Stream Deck. You'll be prompted to authenticate with Windows Hello before the action executes.
+        </div>
+    </div>
+
+    <script>
+        // DEBUG MODE - Set to false before publishing to store
+        const DEBUG_MODE = false;
+
+        // Hide debug elements if debug mode is disabled
+        if (!DEBUG_MODE) {
+            const style = document.createElement('style');
+            style.textContent = `
+                #debugStatus,
+                #reloadButtonContainer,
+                details:has(#debugLog) {
+                    display: none !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // IMPORTANT: Define these in global scope FIRST before Stream Deck tries to call them
+        var websocket = null;
+        var uuid = null;
+        var actionInfo = null;
+        var settings = {};
+        var saveCount = 0;
+
+        // Add message to visible debug log
+        function debugLog(message, data) {
+            if (!DEBUG_MODE) return; // Skip if debug mode is disabled
+
+            const logEl = document.getElementById('debugLog');
+            if (logEl) {
+                const timestamp = new Date().toLocaleTimeString();
+                const dataStr = data ? ' ' + JSON.stringify(data) : '';
+                const logLine = `[${timestamp}] ${message}${dataStr}\n`;
+                logEl.textContent += logLine;
+                logEl.scrollTop = logEl.scrollHeight; // Auto-scroll to bottom
+            }
+            // Also log to console for developers
+            if (data) {
+                console.log(message, data);
+            } else {
+                console.log(message);
+            }
+        }
+
+        // Update debug status indicator
+        function updateDebugStatus(message, color) {
+            if (!DEBUG_MODE) return; // Skip if debug mode is disabled
+
+            const statusEl = document.getElementById('debugStatus');
+            if (statusEl) {
+                statusEl.textContent = message;
+                statusEl.style.color = color || '#ffcc00';
+            }
+            debugLog(message);
+        }
+
+        // Connect to Stream Deck - MUST be in global scope
+        window.connectElgatoStreamDeckSocket = function(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+            debugLog('🔌 connectElgatoStreamDeckSocket CALLED', {
+                port: inPort,
+                uuid: inUUID?.substring(0, 8),
+                registerEvent: inRegisterEvent
+            });
+            updateDebugStatus(`🔌 Connecting to port ${inPort}...`, '#ffcc00');
+
+            uuid = inUUID;
+            actionInfo = JSON.parse(inActionInfo);
+
+            debugLog('📡 Creating WebSocket...');
+            websocket = new WebSocket('ws://127.0.0.1:' + inPort);
+
+            websocket.onopen = function() {
+                debugLog('✅ WebSocket OPENED!');
+                const json = {
+                    event: inRegisterEvent,
+                    uuid: uuid
+                };
+                debugLog('📤 Sending registration:', { event: inRegisterEvent });
+                websocket.send(JSON.stringify(json));
+
+                // Update status
+                updateDebugStatus('✅ Connected - Ready', '#00aa00');
+
+                // Request current settings
+                requestSettings();
+            };
+
+            websocket.onerror = function(error) {
+                debugLog('❌ WebSocket ERROR:', error);
+                updateDebugStatus(`❌ Connection Error`, '#ff0000');
+            };
+
+            websocket.onclose = function(event) {
+                debugLog('⚠️ WebSocket CLOSED:', {
+                    code: event.code,
+                    reason: event.reason,
+                    wasClean: event.wasClean
+                });
+                updateDebugStatus(`⚠️ Disconnected (${event.code})`, '#ff9900');
+            };
+
+            websocket.onmessage = function(evt) {
+                const jsonObj = JSON.parse(evt.data);
+                const event = jsonObj.event;
+                const jsonPayload = jsonObj.payload;
+
+                debugLog('📨 Received:', { event: event, hasPayload: !!jsonPayload });
+
+                if (event === 'didReceiveSettings') {
+                    settings = jsonPayload.settings;
+                    debugLog('💾 Loading settings:', { actionType: settings.actionType });
+                    loadSettings(settings);
+                }
+            };
+        }
+
+        // Request settings from plugin
+        function requestSettings() {
+            if (websocket && websocket.readyState === 1) {
+                const json = {
+                    event: 'getSettings',
+                    context: uuid
+                };
+                websocket.send(JSON.stringify(json));
+            }
+        }
+
+        // Save settings to plugin
+        function saveSettings() {
+            if (websocket && websocket.readyState === 1) {
+                saveCount++;
+
+                // Send setSettings event
+                const json = {
+                    event: 'setSettings',
+                    context: uuid,
+                    payload: settings
+                };
+                debugLog('💾 Saving:', { count: saveCount, type: settings.actionType });
+                websocket.send(JSON.stringify(json));
+
+                // ALSO send directly to plugin to bypass Stream Deck's delay
+                const directJson = {
+                    action: actionInfo.action,
+                    event: 'sendToPlugin',
+                    context: uuid,
+                    payload: settings
+                };
+                websocket.send(JSON.stringify(directJson));
+                debugLog('📤 Sent direct to plugin');
+
+                // Update status
+                updateDebugStatus(`💾 Saved (${saveCount}) - Type: ${settings.actionType || 'none'}`, '#00ff00');
+
+                // Reset status after 2 seconds
+                setTimeout(() => {
+                    updateDebugStatus('✅ Connected - Ready', '#00aa00');
+                }, 2000);
+            } else {
+                debugLog('❌ Cannot save - WS not ready:', { state: websocket?.readyState });
+                updateDebugStatus('❌ WebSocket not ready!', '#ff0000');
+            }
+        }
+
+        // Load settings into UI
+        function loadSettings(loadedSettings) {
+            settings = loadedSettings || {};
+            console.log('📥 Loading settings:', settings);
+
+            // Action type
+            if (settings.actionType) {
+                document.getElementById('actionType').value = settings.actionType;
+            }
+
+            // Program settings
+            if (settings.programPath) document.getElementById('programPath').value = settings.programPath;
+            if (settings.programArgs) document.getElementById('programArgs').value = settings.programArgs;
+            if (settings.workingDirectory) document.getElementById('workingDirectory').value = settings.workingDirectory;
+
+            // Hotkey settings
+            if (settings.hotkeyKeys) document.getElementById('hotkeyKeys').value = settings.hotkeyKeys;
+
+            // Script settings
+            if (settings.scriptType) document.getElementById('scriptType').value = settings.scriptType;
+            if (settings.scriptContent) document.getElementById('scriptContent').value = settings.scriptContent;
+
+            // HTTP settings
+            if (settings.httpUrl) document.getElementById('httpUrl').value = settings.httpUrl;
+            if (settings.httpMethod) document.getElementById('httpMethod').value = settings.httpMethod;
+            if (settings.httpBody) document.getElementById('httpBody').value = settings.httpBody;
+            if (settings.httpHeaders) document.getElementById('httpHeaders').value = settings.httpHeaders;
+            if (settings.httpShowResponse) document.getElementById('httpShowResponse').checked = settings.httpShowResponse;
+
+            // Text settings
+            if (settings.textContent) document.getElementById('textContent').value = settings.textContent;
+            if (settings.textMode) document.getElementById('textMode').value = settings.textMode;
+            if (settings.textPressEnter !== undefined) document.getElementById('textPressEnter').checked = settings.textPressEnter;
+
+            // Sequence settings
+            if (settings.sequenceActions) {
+                document.getElementById('sequenceActions').value = JSON.stringify(settings.sequenceActions, null, 2);
+            }
+
+            // Auth settings
+            if (settings.requireAuthEveryTime !== undefined) {
+                document.getElementById('requireAuthEveryTime').checked = settings.requireAuthEveryTime;
+            }
+            if (settings.sessionDurationMinutes !== undefined) {
+                document.getElementById('sessionDurationMinutes').value = settings.sessionDurationMinutes;
+            } else {
+                document.getElementById('sessionDurationMinutes').value = 5;
+            }
+
+            // Update UI visibility
+            updateUIVisibility();
+        }
+
+        // Update which settings sections are visible
+        function updateUIVisibility() {
+            const actionType = document.getElementById('actionType').value;
+
+            // Hide all settings
+            document.getElementById('programSettings').classList.add('hidden');
+            document.getElementById('hotkeySettings').classList.add('hidden');
+            document.getElementById('scriptSettings').classList.add('hidden');
+            document.getElementById('httpSettings').classList.add('hidden');
+            document.getElementById('textSettings').classList.add('hidden');
+            document.getElementById('sequenceSettings').classList.add('hidden');
+
+            // Show relevant settings
+            switch (actionType) {
+                case 'program':
+                    document.getElementById('programSettings').classList.remove('hidden');
+                    break;
+                case 'hotkey':
+                    document.getElementById('hotkeySettings').classList.remove('hidden');
+                    break;
+                case 'script':
+                    document.getElementById('scriptSettings').classList.remove('hidden');
+                    break;
+                case 'http':
+                    document.getElementById('httpSettings').classList.remove('hidden');
+                    break;
+                case 'text':
+                    document.getElementById('textSettings').classList.remove('hidden');
+                    break;
+                case 'sequence':
+                    document.getElementById('sequenceSettings').classList.remove('hidden');
+                    break;
+            }
+
+            // Show/hide session duration based on checkbox
+            const requireAuthEveryTime = document.getElementById('requireAuthEveryTime').checked;
+            const sessionWrapper = document.getElementById('sessionDurationWrapper');
+            if (requireAuthEveryTime) {
+                sessionWrapper.classList.add('hidden');
+            } else {
+                sessionWrapper.classList.remove('hidden');
+            }
+        }
+
+        // Set up event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Action type change
+            document.getElementById('actionType').addEventListener('change', function(e) {
+                settings.actionType = e.target.value;
+                updateUIVisibility();
+                saveSettings();
+            });
+
+            // Program settings
+            document.getElementById('programPath').addEventListener('input', function(e) {
+                settings.programPath = e.target.value;
+                saveSettings();
+            });
+            document.getElementById('programArgs').addEventListener('input', function(e) {
+                settings.programArgs = e.target.value;
+                saveSettings();
+            });
+            document.getElementById('workingDirectory').addEventListener('input', function(e) {
+                settings.workingDirectory = e.target.value;
+                saveSettings();
+            });
+
+            // Hotkey settings
+            document.getElementById('hotkeyKeys').addEventListener('input', function(e) {
+                settings.hotkeyKeys = e.target.value;
+                saveSettings();
+            });
+
+            // Script settings
+            document.getElementById('scriptType').addEventListener('change', function(e) {
+                settings.scriptType = e.target.value;
+                saveSettings();
+            });
+            document.getElementById('scriptContent').addEventListener('input', function(e) {
+                settings.scriptContent = e.target.value;
+                saveSettings();
+            });
+
+            // HTTP settings
+            document.getElementById('httpUrl').addEventListener('input', function(e) {
+                settings.httpUrl = e.target.value;
+                saveSettings();
+            });
+            document.getElementById('httpMethod').addEventListener('change', function(e) {
+                settings.httpMethod = e.target.value;
+                saveSettings();
+            });
+            document.getElementById('httpBody').addEventListener('input', function(e) {
+                settings.httpBody = e.target.value;
+                saveSettings();
+            });
+            document.getElementById('httpHeaders').addEventListener('input', function(e) {
+                settings.httpHeaders = e.target.value;
+                saveSettings();
+            });
+            document.getElementById('httpShowResponse').addEventListener('change', function(e) {
+                settings.httpShowResponse = e.target.checked;
+                saveSettings();
+            });
+
+            // Text settings
+            document.getElementById('textContent').addEventListener('input', function(e) {
+                settings.textContent = e.target.value;
+                saveSettings();
+            });
+            document.getElementById('textMode').addEventListener('change', function(e) {
+                settings.textMode = e.target.value;
+                saveSettings();
+            });
+            document.getElementById('textPressEnter').addEventListener('change', function(e) {
+                settings.textPressEnter = e.target.checked;
+                saveSettings();
+            });
+
+            // Sequence settings
+            document.getElementById('sequenceActions').addEventListener('input', function(e) {
+                try {
+                    settings.sequenceActions = JSON.parse(e.target.value);
+                    e.target.style.borderColor = '#515151';
+                } catch (err) {
+                    // Invalid JSON - show red border but don't save
+                    e.target.style.borderColor = '#cc0000';
+                    return;
+                }
+                saveSettings();
+            });
+
+            // Auth settings
+            document.getElementById('requireAuthEveryTime').addEventListener('change', function(e) {
+                settings.requireAuthEveryTime = e.target.checked;
+                updateUIVisibility();
+                saveSettings();
+            });
+            document.getElementById('sessionDurationMinutes').addEventListener('input', function(e) {
+                settings.sessionDurationMinutes = parseInt(e.target.value) || 5;
+                saveSettings();
+            });
+
+            // Initial UI update
+            updateUIVisibility();
+        });
+
+        // Debug: Log when script is loaded
+        debugLog('🚀 Script LOADED');
+        debugLog('✓ connectElgatoStreamDeckSocket defined on window object');
+
+        // WORKAROUND: If Stream Deck doesn't call our function, try to connect manually
+        // Stream Deck passes connection info via URL query parameters
+        setTimeout(function() {
+            if (!websocket || websocket.readyState !== 1) {
+                debugLog('⏰ TIMEOUT: Function not called by Stream Deck');
+                debugLog('🔧 Attempting manual connection from URL params...');
+
+                // Parse URL query parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const port = urlParams.get('port');
+                const uuid = urlParams.get('uuid');
+                const registerEvent = urlParams.get('registerEvent');
+                const info = urlParams.get('info');
+                const actionInfo = urlParams.get('actionInfo');
+
+                debugLog('URL params:', {
+                    port: port,
+                    uuid: uuid ? uuid.substring(0, 8) : null,
+                    registerEvent: registerEvent,
+                    hasInfo: !!info,
+                    hasActionInfo: !!actionInfo
+                });
+
+                if (port && uuid && registerEvent && info && actionInfo) {
+                    debugLog('✓ All params found, calling connection function manually');
+                    window.connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, actionInfo);
+                } else {
+                    debugLog('❌ Missing URL parameters - cannot connect');
+                    updateDebugStatus('❌ Cannot connect - click reload button', '#ff0000');
+
+                    // Show reload button
+                    const reloadBtn = document.getElementById('reloadButtonContainer');
+                    if (reloadBtn) {
+                        reloadBtn.classList.remove('hidden');
+                    }
+                }
+            }
+        }, 2000);
+    </script>
+</body>
+</html>

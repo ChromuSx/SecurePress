@@ -1,0 +1,30 @@
+{
+  "name": "com.securepress.action",
+  "version": "1.0.0",
+  "description": "Stream Deck plugin for Windows Hello authenticated actions",
+  "author": "Your Name",
+  "license": "MIT",
+  "main": "src/plugin.ts",
+  "scripts": {
+    "icons": "node scripts/generate-icons.js",
+    "build": "tsc && node scripts/copy-assets.js",
+    "watch": "tsc --watch",
+    "package": "node scripts/package-plugin.js",
+    "build:package": "npm run build && npm run package",
+    "install:local": "npm run build:package && node scripts/install-local.js",
+    "prebuild": "npm run icons"
+  },
+  "devDependencies": {
+    "@elgato/streamdeck": "^1.0.0",
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.18.1",
+    "adm-zip": "^0.5.16",
+    "sharp": "^0.34.5",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "passport-desktop": "^0.1.2",
+    "ws": "^8.18.3"
+  }
+}
