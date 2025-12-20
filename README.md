@@ -28,7 +28,7 @@ A Stream Deck plugin that adds Windows Hello biometric authentication to protect
 Coming soon!
 
 ### Manual Installation
-1. Download the latest `com.securepress.action.streamDeckPlugin` from [Releases](https://github.com/yourusername/SecurePress/releases)
+1. Download the latest `com.securepress.action.streamDeckPlugin` from [Releases](https://github.com/ChromuSx/SecurePress/releases)
 2. Double-click the file to install
 3. The plugin will appear in Stream Deck's action list
 
@@ -78,4 +78,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Support
 
-For issues and feature requests, please use the [GitHub Issues](https://github.com/yourusername/SecurePress/issues) page.
+For issues and feature requests, please use the [GitHub Issues](https://github.com/ChromuSx/SecurePress/issues) page.
