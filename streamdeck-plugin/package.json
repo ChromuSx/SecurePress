@@ -12,7 +12,7 @@
     "build:ts": "tsc",
     "build:auth-helper": "dotnet publish native/SecurePress.AuthHelper/SecurePress.AuthHelper.csproj -c Release -r win-x64 --self-contained true",
     "watch": "tsc --watch",
-    "test": "npm run build:ts && node --test test/*.test.js",
+    "test": "npm run build:ts && node scripts/run-tests.js",
     "package": "node scripts/package-plugin.js",
     "package:cli": "streamdeck pack com.securepress.action.sdPlugin",
     "build:package": "npm run build && npm run package",
