@@ -10,10 +10,10 @@
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
 </div>
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-Windows-blue.svg" alt="Platform">
-  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License">
-  <img src="https://img.shields.io/badge/version-1.0.0-brightgreen.svg" alt="Version">
-  <img src="https://img.shields.io/github/stars/ChromuSx/SecurePress?style=social" alt="Stars">
+  <img src="https://img.shields.io/badge/platform-Windows-blue?style=for-the-badge" alt="Platform">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="MIT License">
+  <img src="https://img.shields.io/badge/version-1.0.0-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/github/stars/ChromuSx/SecurePress?style=for-the-badge" alt="Stars">
 </p>
 <p align="center">
   <a href="https://github.com/sponsors/ChromuSx"><img src="https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?style=for-the-badge&logo=github-sponsors&logoColor=white" alt="GitHub Sponsors"></a>
@@ -25,7 +25,7 @@
   <strong>🔐 SecurePress is a Stream Deck plugin that adds Windows Hello biometric authentication to protect sensitive actions. Lock your Stream Deck buttons behind fingerprint, facial recognition, or PIN verification - perfect for streamers and power users who need enterprise-grade security for critical operations.</strong>
 </p>
 
-## Features ✨
+## ✨ Features
 
 🔐 **Biometric Security** - Lock actions behind Windows Hello authentication (fingerprint, facial recognition, or PIN)
 
@@ -43,7 +43,7 @@
 - 🟠 Orange badge - Authentication in progress
 - ⚪ No badge - Idle state
 
-## Installation 📥
+## 📥 Installation
 
 ### From Stream Deck Marketplace
 Coming soon!
@@ -54,7 +54,7 @@ Coming soon!
 3. The plugin will appear in Stream Deck's action list
 4. Drag and drop to add it to your Stream Deck
 
-## Quick Start 🚀
+## 🚀 Quick Start
 
 1. **Add SecurePress action** to your Stream Deck
 2. **Configure the action** in the property inspector:
@@ -64,7 +64,7 @@ Coming soon!
 4. **Authenticate with Windows Hello** (fingerprint, face, or PIN)
 5. **Action executes** after successful authentication!
 
-## Action Types 🎯
+## 🎯 Action Types
 
 ### 💻 Execute Program
 Launch applications and executables securely.
@@ -98,13 +98,13 @@ Chain multiple actions together.
 - Execute a series of protected actions
 - Combine different action types in sequence
 
-## Requirements 🛠️
+## 🛠️ Requirements
 
 - **Operating System**: Windows 10/11
 - **Stream Deck Software**: 6.4 or higher
 - **Windows Hello**: Configured with fingerprint reader, facial recognition camera, or PIN
 
-## Development 💻
+## 💻 Development
 
 ### Prerequisites
 - Node.js 20+
@@ -134,7 +134,7 @@ npm run install:local
 
 See [DEVELOPMENT.md](streamdeck-plugin/DEVELOPMENT.md) for detailed development instructions.
 
-## How It Works 🧠
+## 🧠 How It Works
 
 SecurePress integrates Windows Hello authentication into your Stream Deck workflow:
 
@@ -144,11 +144,11 @@ SecurePress integrates Windows Hello authentication into your Stream Deck workfl
 4. **Action Execution** - Configured action executes only after successful authentication
 5. **Visual Feedback** - Button shows color-coded status (green/red/orange)
 
-## Contributions 🤝
+## 🤝 Contributions
 
 Contributions and improvements are welcome! Feel free to submit a pull request or report any issues on [GitHub Issues](https://github.com/ChromuSx/SecurePress/issues).
 
-## Support the Project 💖
+## 💖 Support the Project
 
 This project is completely free and open source. If you find it useful and would like to support its continued development and updates, consider making a donation. Your support helps keep the project alive and motivates me to add new features and improvements!
 
@@ -161,12 +161,12 @@ This project is completely free and open source. If you find it useful and would
 
 Every contribution, no matter how small, is greatly appreciated! ❤️
 
-## License 📜
+## 📜 License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
 <div align="center">
-  Made with ❤️ by <a href="https://github.com/ChromuSx">ChromuSx</a>
+  <sub>Made with ❤️ by <a href="https://github.com/ChromuSx">Giovanni Guarino</a></sub>
 </div>
