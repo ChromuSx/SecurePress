@@ -6,16 +6,9 @@ const imgsDir = 'imgs';
 
 // Icon configurations: [name, width, height, generate2x]
 const iconConfigs = [
-  // Plugin icons
-  { name: 'plugin-icon', size: 512, need2x: true },
+  // White line icons for Stream Deck's action/category list.
   { name: 'category-icon', size: 28, need2x: true },
-  { name: 'action-icon', size: 144, need2x: true },
-
-  // Key state icons
-  { name: 'key-idle', size: 144, need2x: true },
-  { name: 'key-authenticating', size: 144, need2x: true },
-  { name: 'key-success', size: 144, need2x: true },
-  { name: 'key-error', size: 144, need2x: true },
+  { name: 'action-icon', size: 20, need2x: true },
 ];
 
 async function convertSVGToPNG(svgPath, pngPath, size) {

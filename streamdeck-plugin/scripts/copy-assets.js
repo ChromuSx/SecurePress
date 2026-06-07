@@ -3,11 +3,17 @@ const path = require('path');
 
 const pluginDir = 'com.securepress.action.sdPlugin';
 
-// Copy manifest
-fs.copyFileSync(
-  path.join(pluginDir, 'manifest.json'),
-  path.join(pluginDir, 'manifest.json')
-);
+fs.rmSync(pluginDir, { recursive: true, force: true });
+fs.mkdirSync(pluginDir, { recursive: true });
+
+// Copy manifest from the tracked source file into the packaged plugin folder.
+const manifestSource = 'manifest.json';
+if (!fs.existsSync(manifestSource)) {
+  console.error('Error: manifest.json source file not found.');
+  process.exit(1);
+}
+fs.copyFileSync(manifestSource, path.join(pluginDir, 'manifest.json'));
+console.log('✓ Copied manifest');
 
 // Copy all compiled JS files from bin
 const binSourceDir = 'bin';
@@ -56,15 +62,55 @@ const imgsDest = path.join(pluginDir, 'imgs');
 
 if (fs.existsSync(imgsSource)) {
   fs.mkdirSync(imgsDest, { recursive: true });
-  const imgFiles = fs.readdirSync(imgsSource);
+  const imgFiles = [
+    'plugin-icon.png',
+    'plugin-icon@2x.png',
+    'category-icon.png',
+    'category-icon@2x.png',
+    'action-icon.png',
+    'action-icon@2x.png',
+    'key-idle.png',
+    'key-idle@2x.png',
+    'key-authenticating.png',
+    'key-authenticating@2x.png',
+    'key-success.png',
+    'key-success@2x.png',
+    'key-error.png',
+    'key-error@2x.png',
+  ];
 
   imgFiles.forEach(file => {
+    const sourcePath = path.join(imgsSource, file);
+    if (!fs.existsSync(sourcePath)) {
+      console.warn(`Warning: image asset missing: ${file}`);
+      return;
+    }
+
     fs.copyFileSync(
-      path.join(imgsSource, file),
+      sourcePath,
       path.join(imgsDest, file)
     );
   });
   console.log('✓ Copied image files');
+}
+
+// Copy Windows Hello helper if it was published.
+const helperSource = path.join(
+  'native',
+  'SecurePress.AuthHelper',
+  'bin',
+  'Release',
+  'net8.0-windows10.0.19041.0',
+  'win-x64',
+  'publish',
+  'SecurePress.AuthHelper.exe'
+);
+
+if (fs.existsSync(helperSource)) {
+  fs.copyFileSync(helperSource, path.join(pluginDir, 'SecurePress.AuthHelper.exe'));
+  console.log('✓ Copied Windows Hello auth helper');
+} else {
+  console.warn('Warning: Windows Hello auth helper not found. Run npm run build:auth-helper first.');
 }
 
 // Copy node_modules (production dependencies only)

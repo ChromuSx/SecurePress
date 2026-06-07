@@ -1,13 +1,14 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export interface AuthResult {
   success: boolean;
-  method?: 'native' | 'powershell';
+  method?: 'helper' | 'native' | 'powershell';
   error?: string;
   details?: string;
 }
@@ -55,6 +56,10 @@ export class WindowsHelloAuth {
    * Check if Windows Hello is available on this system
    */
   public isAvailable(): boolean {
+    if (this.isHelperAvailable()) {
+      return true;
+    }
+
     if (this.useNative && this.passport) {
       return true;
     }
@@ -77,6 +82,15 @@ export class WindowsHelloAuth {
       };
     }
 
+    // Prefer the helper because it attaches Windows Hello to the currently
+    // active window, preventing the prompt from opening behind other windows.
+    if (this.isHelperAvailable()) {
+      const helperResult = await this.authenticateWithHelper(message);
+      if (helperResult.success || helperResult.error !== 'HelperError') {
+        return helperResult;
+      }
+    }
+
     // Try native method first
     if (this.useNative && this.passport) {
       return await this.authenticateNative();
@@ -84,6 +98,51 @@ export class WindowsHelloAuth {
 
     // Fallback to PowerShell method
     return await this.authenticatePowerShell(message);
+  }
+
+  private getHelperPath(): string {
+    return path.join(__dirname, '..', 'SecurePress.AuthHelper.exe');
+  }
+
+  private isHelperAvailable(): boolean {
+    return process.platform === 'win32' && fs.existsSync(this.getHelperPath());
+  }
+
+  private async authenticateWithHelper(message: string): Promise<AuthResult> {
+    const { debugLog } = require('./debug-logger');
+
+    try {
+      debugLog('Windows Hello: Using SecurePress.AuthHelper');
+      const { stdout, stderr } = await execFileAsync(
+        this.getHelperPath(),
+        [message],
+        { timeout: 60000, windowsHide: true }
+      );
+
+      debugLog('Auth helper execution complete', {
+        stdout: stdout.toString(),
+        stderr: stderr.toString(),
+      });
+
+      return this.parseAuthOutput(stdout.toString().trim(), 'helper');
+    } catch (error: any) {
+      const output = error?.stdout?.toString().trim();
+      if (output) {
+        debugLog('Auth helper returned non-zero with output', { output });
+        return this.parseAuthOutput(output, 'helper');
+      }
+
+      debugLog('Auth helper failed before returning a result', {
+        message: error?.message,
+        code: error?.code,
+      });
+      return {
+        success: false,
+        method: 'helper',
+        error: 'HelperError',
+        details: error?.message || 'Authentication helper failed'
+      };
+    }
   }
 
   /**
@@ -155,29 +214,28 @@ export class WindowsHelloAuth {
    */
   private async authenticatePowerShell(message: string): Promise<AuthResult> {
     const { debugLog } = require('./debug-logger');
-    const fs = require('fs');
-    const os = require('os');
-    const path = require('path');
+    let tempDir = '';
 
     try {
       const psScript = this.generatePowerShellScript(message);
       debugLog('PowerShell script generated');
 
       // Write script to temp file
-      const tempDir = os.tmpdir();
-      const scriptPath = path.join(tempDir, 'securepress-auth.ps1');
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'securepress-auth-'));
+      const scriptPath = path.join(tempDir, 'auth.ps1');
       fs.writeFileSync(scriptPath, psScript, 'utf-8');
       debugLog('Script written to temp file', { scriptPath });
 
       // Execute PowerShell script from file
-      const { stdout, stderr } = await execAsync(
-        `powershell.exe -ExecutionPolicy Bypass -File "${scriptPath}"`,
-        { timeout: 60000 }
+      const { stdout, stderr } = await execFileAsync(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath],
+        { timeout: 60000, windowsHide: true }
       );
 
       // Clean up temp file
       try {
-        fs.unlinkSync(scriptPath);
+        fs.rmSync(tempDir, { recursive: true, force: true });
       } catch (e) {
         // Ignore cleanup errors
       }
@@ -188,31 +246,16 @@ export class WindowsHelloAuth {
       });
 
       const output = stdout.toString().trim();
-
-      if (output.includes('SUCCESS:Verified')) {
-        return {
-          success: true,
-          method: 'powershell'
-        };
-      }
-
-      // Parse error from output
-      if (output.startsWith('ERROR:')) {
-        const parts = output.split(':');
-        const errorType = parts[1] || 'Unknown';
-
-        return {
-          success: false,
-          method: 'powershell',
-          error: errorType,
-          details: this.getErrorMessage(errorType)
-        };
-      }
-
-      // Unexpected output
-      throw new Error(`Unexpected PowerShell output: ${output}`);
+      return this.parseAuthOutput(output, 'powershell');
 
     } catch (error: any) {
+      if (tempDir) {
+        try {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
       return {
         success: false,
         method: 'powershell',
@@ -226,6 +269,7 @@ export class WindowsHelloAuth {
    * Generate PowerShell script for Windows Hello authentication
    */
   private generatePowerShellScript(message: string): string {
+    const escapedMessage = this.escapePowerShellSingleQuotedString(message);
     return `
       Add-Type -AssemblyName System.Runtime.WindowsRuntime
 
@@ -256,7 +300,7 @@ export class WindowsHelloAuth {
           }
 
           # Request verification
-          $verifyOp = [Windows.Security.Credentials.UI.UserConsentVerifier]::RequestVerificationAsync('${message}')
+          $verifyOp = [Windows.Security.Credentials.UI.UserConsentVerifier]::RequestVerificationAsync('${escapedMessage}')
           $result = Await-AsyncOperation $verifyOp ([Windows.Security.Credentials.UI.UserConsentVerificationResult])
 
           # Output result
@@ -293,6 +337,33 @@ export class WindowsHelloAuth {
     `;
   }
 
+  private parseAuthOutput(output: string, method: 'helper' | 'powershell'): AuthResult {
+    if (output.includes('SUCCESS:Verified')) {
+      return {
+        success: true,
+        method
+      };
+    }
+
+    if (output.startsWith('ERROR:')) {
+      const parts = output.split(':');
+      const errorType = parts[1] || 'Unknown';
+
+      return {
+        success: false,
+        method,
+        error: errorType,
+        details: this.getErrorMessage(errorType)
+      };
+    }
+
+    throw new Error(`Unexpected authentication output: ${output}`);
+  }
+
+  private escapePowerShellSingleQuotedString(value: string): string {
+    return value.replace(/'/g, "''");
+  }
+
   /**
    * Get user-friendly error message
    */
@@ -304,6 +375,7 @@ export class WindowsHelloAuth {
       'NotConfiguredForUser': 'Windows Hello is not set up for this user. Please configure it in Windows Settings',
       'DisabledByPolicy': 'Windows Hello is disabled by system policy',
       'DeviceBusy': 'The biometric device is currently busy',
+      'RetriesExhausted': 'Too many authentication attempts failed. Please try again later',
       'Unknown': 'An unknown error occurred during authentication'
     };
 

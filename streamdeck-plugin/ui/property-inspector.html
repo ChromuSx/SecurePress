@@ -85,6 +85,27 @@
             font-style: italic;
         }
 
+        .validation-panel {
+            margin: 0 0 14px 0;
+            padding: 8px 10px;
+            border-radius: 4px;
+            background: #332a1f;
+            border: 1px solid #6d4c1f;
+            color: #f2cf8f;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .validation-panel.error {
+            background: #3a2020;
+            border-color: #7d3232;
+            color: #ffb3b3;
+        }
+
+        .validation-panel div + div {
+            margin-top: 4px;
+        }
+
         .section-title {
             font-size: 12px;
             font-weight: 600;
@@ -163,6 +184,8 @@
                 <option value="sequence">Multi-Command Sequence</option>
             </select>
         </div>
+
+        <div id="validationMessages" class="validation-panel hidden"></div>
 
         <!-- Program Settings -->
         <div id="programSettings" class="hidden">
@@ -244,8 +267,8 @@
 
             <div class="sdpi-item">
                 <label class="sdpi-item-label" for="httpHeaders">Custom Headers (optional)</label>
-                <textarea id="httpHeaders" placeholder='{"Authorization": "Bearer token123"}'></textarea>
-                <div class="info-text">Additional headers in JSON format</div>
+                <textarea id="httpHeaders" placeholder='{"X-Local-Action": "start"}'></textarea>
+                <div class="info-text">Additional headers in JSON format. Sensitive values are protected with Windows DPAPI.</div>
             </div>
 
             <div class="sdpi-item">
@@ -262,7 +285,7 @@
             <div class="sdpi-item">
                 <label class="sdpi-item-label" for="textContent">Text to Type *</label>
                 <textarea id="textContent" placeholder="Hello, World!"></textarea>
-                <div class="info-text">The text that will be typed or pasted</div>
+                <div class="info-text">The text that will be typed or pasted. Sensitive values are protected with Windows DPAPI.</div>
             </div>
 
             <div class="sdpi-item">
@@ -361,6 +384,8 @@
         var actionInfo = null;
         var settings = {};
         var saveCount = 0;
+        var saveTimer = null;
+        var SECURE_FIELDS = ['programArgs', 'scriptContent', 'httpBody', 'httpHeaders', 'textContent', 'sequenceActions'];
 
         // Add message to visible debug log
         function debugLog(message, data) {
@@ -447,8 +472,15 @@
                 debugLog('📨 Received:', { event: event, hasPayload: !!jsonPayload });
 
                 if (event === 'didReceiveSettings') {
-                    settings = jsonPayload.settings;
+                    settings = jsonPayload.settings || {};
                     debugLog('💾 Loading settings:', { actionType: settings.actionType });
+                    loadSettings(settings);
+                    requestSecureSettings();
+                }
+
+                if (event === 'sendToPropertyInspector' && jsonPayload && jsonPayload.type === 'secureSettings') {
+                    settings = jsonPayload.settings || settings || {};
+                    debugLog('🔐 Secure settings loaded:', { actionType: settings.actionType });
                     loadSettings(settings);
                 }
             };
@@ -459,7 +491,22 @@
             if (websocket && websocket.readyState === 1) {
                 const json = {
                     event: 'getSettings',
+                    action: actionInfo.action,
                     context: uuid
+                };
+                websocket.send(JSON.stringify(json));
+            }
+        }
+
+        function requestSecureSettings() {
+            if (websocket && websocket.readyState === 1 && actionInfo && uuid) {
+                const json = {
+                    action: actionInfo.action,
+                    event: 'sendToPlugin',
+                    context: uuid,
+                    payload: {
+                        type: 'getSecureSettings'
+                    }
                 };
                 websocket.send(JSON.stringify(json));
             }
@@ -467,27 +514,50 @@
 
         // Save settings to plugin
         function saveSettings() {
+            settings.actionType = settings.actionType || document.getElementById('actionType').value || 'program';
+            updateValidationMessages();
+            if (saveTimer) {
+                clearTimeout(saveTimer);
+            }
+
+            saveTimer = setTimeout(flushSaveSettings, 350);
+        }
+
+        function cloneSettingsForPersistence(source) {
+            const clone = JSON.parse(JSON.stringify(source || {}));
+            SECURE_FIELDS.forEach(field => {
+                delete clone[field];
+            });
+            return clone;
+        }
+
+        function flushSaveSettings() {
             if (websocket && websocket.readyState === 1) {
                 saveCount++;
+                const persistedSettings = cloneSettingsForPersistence(settings);
 
                 // Send setSettings event
                 const json = {
                     event: 'setSettings',
+                    action: actionInfo.action,
                     context: uuid,
-                    payload: settings
+                    payload: persistedSettings
                 };
                 debugLog('💾 Saving:', { count: saveCount, type: settings.actionType });
                 websocket.send(JSON.stringify(json));
 
-                // ALSO send directly to plugin to bypass Stream Deck's delay
+                // Send full values directly to the plugin; it stores sensitive fields with DPAPI.
                 const directJson = {
                     action: actionInfo.action,
                     event: 'sendToPlugin',
                     context: uuid,
-                    payload: settings
+                    payload: {
+                        type: 'settingsChanged',
+                        settings: settings
+                    }
                 };
                 websocket.send(JSON.stringify(directJson));
-                debugLog('📤 Sent direct to plugin');
+                debugLog('📤 Sent secure settings to plugin');
 
                 // Update status
                 updateDebugStatus(`💾 Saved (${saveCount}) - Type: ${settings.actionType || 'none'}`, '#00ff00');
@@ -505,54 +575,148 @@
         // Load settings into UI
         function loadSettings(loadedSettings) {
             settings = loadedSettings || {};
-            console.log('📥 Loading settings:', settings);
+            settings.actionType = settings.actionType || 'program';
+            debugLog('📥 Loading settings', { actionType: settings.actionType });
 
             // Action type
-            if (settings.actionType) {
-                document.getElementById('actionType').value = settings.actionType;
-            }
+            document.getElementById('actionType').value = settings.actionType || 'program';
 
             // Program settings
-            if (settings.programPath) document.getElementById('programPath').value = settings.programPath;
-            if (settings.programArgs) document.getElementById('programArgs').value = settings.programArgs;
-            if (settings.workingDirectory) document.getElementById('workingDirectory').value = settings.workingDirectory;
+            document.getElementById('programPath').value = settings.programPath || '';
+            document.getElementById('programArgs').value = settings.programArgs || '';
+            document.getElementById('workingDirectory').value = settings.workingDirectory || '';
 
             // Hotkey settings
-            if (settings.hotkeyKeys) document.getElementById('hotkeyKeys').value = settings.hotkeyKeys;
+            document.getElementById('hotkeyKeys').value = settings.hotkeyKeys || '';
 
             // Script settings
-            if (settings.scriptType) document.getElementById('scriptType').value = settings.scriptType;
-            if (settings.scriptContent) document.getElementById('scriptContent').value = settings.scriptContent;
+            document.getElementById('scriptType').value = settings.scriptType || 'powershell';
+            document.getElementById('scriptContent').value = settings.scriptContent || '';
 
             // HTTP settings
-            if (settings.httpUrl) document.getElementById('httpUrl').value = settings.httpUrl;
-            if (settings.httpMethod) document.getElementById('httpMethod').value = settings.httpMethod;
-            if (settings.httpBody) document.getElementById('httpBody').value = settings.httpBody;
-            if (settings.httpHeaders) document.getElementById('httpHeaders').value = settings.httpHeaders;
-            if (settings.httpShowResponse) document.getElementById('httpShowResponse').checked = settings.httpShowResponse;
+            document.getElementById('httpUrl').value = settings.httpUrl || '';
+            document.getElementById('httpMethod').value = settings.httpMethod || 'GET';
+            document.getElementById('httpBody').value = settings.httpBody || '';
+            document.getElementById('httpHeaders').value = settings.httpHeaders || '';
+            document.getElementById('httpShowResponse').checked = !!settings.httpShowResponse;
 
             // Text settings
-            if (settings.textContent) document.getElementById('textContent').value = settings.textContent;
-            if (settings.textMode) document.getElementById('textMode').value = settings.textMode;
-            if (settings.textPressEnter !== undefined) document.getElementById('textPressEnter').checked = settings.textPressEnter;
+            document.getElementById('textContent').value = settings.textContent || '';
+            document.getElementById('textMode').value = settings.textMode || 'type';
+            document.getElementById('textPressEnter').checked = !!settings.textPressEnter;
 
             // Sequence settings
-            if (settings.sequenceActions) {
-                document.getElementById('sequenceActions').value = JSON.stringify(settings.sequenceActions, null, 2);
-            }
+            document.getElementById('sequenceActions').value = settings.sequenceActions
+                ? JSON.stringify(settings.sequenceActions, null, 2)
+                : '';
 
             // Auth settings
-            if (settings.requireAuthEveryTime !== undefined) {
-                document.getElementById('requireAuthEveryTime').checked = settings.requireAuthEveryTime;
-            }
-            if (settings.sessionDurationMinutes !== undefined) {
-                document.getElementById('sessionDurationMinutes').value = settings.sessionDurationMinutes;
-            } else {
-                document.getElementById('sessionDurationMinutes').value = 5;
-            }
+            document.getElementById('requireAuthEveryTime').checked = !!settings.requireAuthEveryTime;
+            document.getElementById('sessionDurationMinutes').value = settings.sessionDurationMinutes || 5;
 
             // Update UI visibility
             updateUIVisibility();
+            updateValidationMessages();
+        }
+
+        function validateSettingsClient(currentSettings) {
+            const errors = [];
+            const warnings = [];
+            const actionType = currentSettings.actionType || 'program';
+
+            const sessionDuration = parseInt(currentSettings.sessionDurationMinutes || 5, 10);
+            if (!currentSettings.requireAuthEveryTime && (sessionDuration < 1 || sessionDuration > 60)) {
+                errors.push('Session duration must be between 1 and 60 minutes.');
+            }
+
+            switch (actionType) {
+                case 'program':
+                    if (!currentSettings.programPath || !currentSettings.programPath.trim()) {
+                        errors.push('Program path is required.');
+                    }
+                    break;
+                case 'hotkey':
+                    if (!currentSettings.hotkeyKeys || !currentSettings.hotkeyKeys.trim()) {
+                        errors.push('Hotkey keys are required.');
+                    }
+                    break;
+                case 'script':
+                    if (!currentSettings.scriptContent || !currentSettings.scriptContent.trim()) {
+                        errors.push('Script content is required.');
+                    }
+                    break;
+                case 'http':
+                    if (!currentSettings.httpUrl || !currentSettings.httpUrl.trim()) {
+                        errors.push('HTTP URL is required.');
+                    } else {
+                        try {
+                            const parsedUrl = new URL(currentSettings.httpUrl);
+                            if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+                                errors.push('HTTP URL must use http:// or https://.');
+                            }
+                        } catch (err) {
+                            errors.push('HTTP URL is not valid.');
+                        }
+                    }
+
+                    if (currentSettings.httpHeaders && currentSettings.httpHeaders.trim()) {
+                        try {
+                            const parsedHeaders = JSON.parse(currentSettings.httpHeaders);
+                            if (!parsedHeaders || Array.isArray(parsedHeaders) || typeof parsedHeaders !== 'object') {
+                                errors.push('HTTP headers must be a JSON object.');
+                            }
+                        } catch (err) {
+                            errors.push('HTTP headers must be valid JSON.');
+                        }
+                    }
+
+                    if (currentSettings.httpBody && currentSettings.httpBody.trim() && (currentSettings.httpMethod || 'GET') === 'GET') {
+                        warnings.push('HTTP body is ignored for GET requests.');
+                    }
+                    break;
+                case 'text':
+                    if (!currentSettings.textContent) {
+                        errors.push('Text content is required.');
+                    }
+                    break;
+                case 'sequence':
+                    if (!Array.isArray(currentSettings.sequenceActions) || currentSettings.sequenceActions.length === 0) {
+                        errors.push('Sequence actions array is required.');
+                    }
+                    break;
+            }
+
+            return { errors, warnings };
+        }
+
+        function updateValidationMessages() {
+            const panel = document.getElementById('validationMessages');
+            if (!panel) return;
+
+            const result = validateSettingsClient(settings || {});
+            const messages = result.errors.concat(result.warnings);
+
+            if (messages.length === 0) {
+                panel.classList.add('hidden');
+                panel.classList.remove('error');
+                panel.innerHTML = '';
+                return;
+            }
+
+            panel.classList.remove('hidden');
+            panel.classList.toggle('error', result.errors.length > 0);
+            panel.innerHTML = messages
+                .map(message => `<div>${escapeHtml(message)}</div>`)
+                .join('');
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         // Update which settings sections are visible
@@ -682,6 +846,8 @@
                 } catch (err) {
                     // Invalid JSON - show red border but don't save
                     e.target.style.borderColor = '#cc0000';
+                    settings.sequenceActions = undefined;
+                    updateValidationMessages();
                     return;
                 }
                 saveSettings();

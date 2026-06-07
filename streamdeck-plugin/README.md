@@ -5,10 +5,11 @@ A Stream Deck plugin that protects your actions with Windows Hello authenticatio
 ## 🌟 Features
 
 ### Windows Hello Integration
-- **Dual Authentication Methods**: Native passport-desktop + PowerShell fallback
+- **Layered Authentication Methods**: SecurePress helper + native passport-desktop + PowerShell fallback
 - **Multiple Auth Types**: PIN, Fingerprint, Facial Recognition
 - **Session Caching**: Optional authentication memory (1-60 minutes)
 - **Flexible Security**: Require auth every time or use cached sessions
+- **Foreground Prompting**: Windows Hello is attached to the active window to avoid losing focus during text input
 
 ### Action Types
 1. **Execute Program** - Launch applications with arguments
@@ -29,6 +30,7 @@ A Stream Deck plugin that protects your actions with Windows Hello authenticatio
 - **Windows Hello**: Must be configured (PIN, Fingerprint, or Face)
 - **Stream Deck**: Software version 6.9 or later
 - **Node.js**: Version 20+ (for development)
+- **.NET Runtime**: Not required for packaged installs; the helper is published self-contained
 
 ## 🚀 Installation
 
@@ -94,7 +96,7 @@ Start-Process "obs64.exe" -ArgumentList "--startstreaming"
 URL: http://localhost:8080/api/lights/on
 Method: POST
 Body: {"brightness": 100, "color": "blue"}
-Headers: {"Authorization": "Bearer token123"}
+Headers: {"X-Local-Action": "lights-on"}
 ```
 
 #### Multi-Command Sequence
@@ -153,6 +155,7 @@ streamdeck-plugin/
 # Development
 npm run build        # Compile TypeScript + copy assets
 npm run watch        # Watch mode for development
+npm test             # Compile TypeScript + run automated tests
 
 # Packaging
 npm run package      # Create .streamDeckPlugin file
@@ -166,14 +169,19 @@ npm run package      # Package
 
 ### Windows Hello Implementation
 
-SecurePress uses a dual-approach for maximum compatibility:
+SecurePress uses a layered approach for maximum compatibility:
 
-1. **Primary**: `passport-desktop` (Rust-based, native performance)
-2. **Fallback**: PowerShell + Windows Runtime APIs
+1. **Primary**: `SecurePress.AuthHelper.exe`, a small self-contained Windows helper that owns the Windows Hello prompt correctly.
+2. **Secondary**: `passport-desktop` native authentication.
+3. **Fallback**: PowerShell + Windows Runtime APIs.
 
 This ensures authentication works even if native bindings fail.
 
 ## ⚠️ Important Notes
+
+### Sensitive Settings
+
+SecurePress redacts sensitive values from debug logs and stores sensitive action fields outside Stream Deck settings using Windows DPAPI. Stream Deck settings keep only DPAPI references. These secrets are tied to the current Windows user profile and are not portable to another account or machine.
 
 ### Icons Required
 
@@ -253,6 +261,6 @@ MIT License - See LICENSE file for details
 
 ---
 
-**Made with 🔒 by [Your Name]**
+**Made with 🔒 by [ChromuSx](https://github.com/ChromuSx)**
 
-For support, open an issue on GitHub or contact [your-email]
+For support, open an issue on GitHub.

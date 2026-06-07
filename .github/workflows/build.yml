@@ -1,0 +1,68 @@
+name: Build SecurePress
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and package
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        working-directory: streamdeck-plugin
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: streamdeck-plugin/package-lock.json
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build Stream Deck package
+        run: npm run build:package
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: securepress-streamdeck-plugin
+          path: streamdeck-plugin/com.securepress.action.streamDeckPlugin
+          if-no-files-found: error
+
+      - name: Attach package to GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: .
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view $env:GITHUB_REF_NAME
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:GITHUB_REF_NAME --title $env:GITHUB_REF_NAME --notes "Automated SecurePress release."
+          }
+          gh release upload $env:GITHUB_REF_NAME "streamdeck-plugin/com.securepress.action.streamDeckPlugin" --clobber

@@ -12,7 +12,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Windows-blue?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="MIT License">
-  <img src="https://img.shields.io/badge/version-1.0.0-brightgreen?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.1.0-brightgreen?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/github/stars/ChromuSx/SecurePress?style=for-the-badge" alt="Stars">
 </p>
 <p align="center">
@@ -101,8 +101,9 @@ Chain multiple actions together.
 ## 🛠️ Requirements
 
 - **Operating System**: Windows 10/11
-- **Stream Deck Software**: 6.4 or higher
+- **Stream Deck Software**: 6.9 or higher
 - **Windows Hello**: Configured with fingerprint reader, facial recognition camera, or PIN
+- **Runtime**: No separate .NET runtime required for the packaged plugin
 
 ## 💻 Development
 
@@ -143,6 +144,13 @@ SecurePress integrates Windows Hello authentication into your Stream Deck workfl
 3. **Verification** - User authenticates with fingerprint, face, or PIN
 4. **Action Execution** - Configured action executes only after successful authentication
 5. **Visual Feedback** - Button shows color-coded status (green/red/orange)
+
+## 🔒 Security Notes
+
+- SecurePress now redacts sensitive action fields from debug logs.
+- Sensitive action fields are stored outside Stream Deck settings with Windows DPAPI protection in the current user's profile. The Stream Deck profile stores only references.
+- Secrets protected with DPAPI are tied to the Windows user profile and are not portable to another Windows account or machine.
+- Configured programs, scripts, text, and HTTP requests execute with the same permissions as Stream Deck.
 
 ## 🤝 Contributions
 

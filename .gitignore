@@ -1,9 +1,11 @@
 # Dependencies
 node_modules/
-package-lock.json
 
 # Build outputs
 streamdeck-plugin/com.securepress.action.sdPlugin/
+streamdeck-plugin/native/**/bin/
+streamdeck-plugin/native/**/obj/
+streamdeck-plugin/imgs/source-logo-transparent.png
 *.streamDeckPlugin
 
 # Logs

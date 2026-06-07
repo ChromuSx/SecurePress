@@ -5,20 +5,26 @@ This directory should contain the plugin icons for Stream Deck.
 ## Required Icons
 
 ### Plugin Icons
-- **plugin-icon.png** - Main plugin icon (256x256px or 512x512px)
-- **plugin-icon@2x.png** - High-resolution version
+- **plugin-icon.png** - Main plugin icon (256x256px)
+- **plugin-icon@2x.png** - High-resolution version (512x512px)
 - **category-icon.png** - Category icon in plugin list (28x28px)
-- **category-icon@2x.png** - High-resolution version
+- **category-icon@2x.png** - High-resolution version (56x56px)
 
 ### Action Icons
-- **action-icon.png** - Default action icon (144x144px)
-- **action-icon@2x.png** - High-resolution version
+- **action-icon.png** - Action-list icon (20x20px)
+- **action-icon@2x.png** - High-resolution version (40x40px)
 
-### Key State Images (144x144px each)
+### Key State Images
 - **key-idle.png** / **key-idle@2x.png** - Default state (lock icon)
 - **key-authenticating.png** / **key-authenticating@2x.png** - During auth (fingerprint/loading)
 - **key-success.png** / **key-success@2x.png** - Success state (unlocked/checkmark)
 - **key-error.png** / **key-error@2x.png** - Error state (red X)
+
+Standard key icons are 72x72px; high-DPI `@2x` key icons are 144x144px.
+
+### Source Logo
+- **source-logo.png** - Master logo used by `scripts/generate-logo-assets.js`
+- **../marketplace/app-icon.png** - Marketplace app icon (288x288px)
 
 ## Design Guidelines
 
@@ -44,4 +50,9 @@ For testing, you can:
 - **Desktop**: GIMP, Inkscape, Adobe Illustrator
 - **AI**: Use AI image generators with prompts like "security lock icon blue modern"
 
-Once you have icons, place them in this directory with the exact names listed above.
+Once you have a new master logo, save it as `source-logo.png` and run:
+
+```bash
+npm run icons:logo
+npm run icons
+```

@@ -1,51 +1,32 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as WebSocketLib from 'ws';
 import { WindowsHelloAuth, AuthResult } from './windows-hello-auth';
 import { debugLog } from './debug-logger';
+import {
+  cleanupTempDir,
+  createTempScript,
+  escapePowerShellSingleQuotedString,
+  getProcessErrorDetails,
+  parseArgumentString,
+  parseHotkeyKeys,
+  runPowerShellScript,
+  toErrorMessage,
+} from './action-utils';
+import { SecureSettingsStorage } from './secure-settings';
+import { Settings } from './types';
+import { validateSettings } from './validation';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const windowsHelloAuth = new WindowsHelloAuth();
+const secureSettingsStorage = new SecureSettingsStorage();
 
 debugLog('Plugin modules loaded');
 
 // Settings interface for action configuration
-interface Settings {
-  actionType?: 'program' | 'hotkey' | 'script' | 'http' | 'text' | 'sequence';
-
-  // Program execution
-  programPath?: string;
-  programArgs?: string;
-  workingDirectory?: string;
-
-  // Hotkey simulation
-  hotkeyKeys?: string;
-
-  // Script execution
-  scriptType?: 'powershell' | 'batch' | 'python';
-  scriptContent?: string;
-
-  // HTTP request
-  httpUrl?: string;
-  httpMethod?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  httpBody?: string;
-  httpHeaders?: string;
-  httpShowResponse?: boolean;
-
-  // Text input
-  textContent?: string;
-  textMode?: 'paste' | 'type';
-  textPressEnter?: boolean;
-
-  // Sequence
-  sequenceActions?: Array<any>;
-
-  // Authentication options
-  requireAuthEveryTime?: boolean;
-  sessionDurationMinutes?: number;
-}
-
 interface ActionContext {
   action: string;
   context: string;
@@ -94,7 +75,13 @@ function connectElgatoStreamDeckSocket(
 
   ws.on('message', (data: string) => {
     const message = JSON.parse(data.toString());
-    handleMessage(message);
+    handleMessage(message).catch((error) => {
+      debugLog('Unhandled message error', {
+        event: message?.event,
+        message: toErrorMessage(error),
+      });
+      logMessage(`Plugin message error: ${toErrorMessage(error)}`);
+    });
   });
 
   ws.on('error', (error: Error) => {
@@ -102,7 +89,7 @@ function connectElgatoStreamDeckSocket(
   });
 }
 
-function handleMessage(message: any) {
+async function handleMessage(message: any) {
   const { event, action, context, payload } = message;
 
   switch (event) {
@@ -153,11 +140,9 @@ function handleMessage(message: any) {
       break;
 
     case 'sendToPlugin':
-      // Property inspector sending settings directly
       debugLog('sendToPlugin event received', { context, payload });
       if (payload && typeof payload === 'object') {
-        settingsCache.set(context, payload);
-        logMessage(`Settings received directly from property inspector for context: ${context.substring(0, 8)}...`);
+        await handlePropertyInspectorMessage(context, payload);
       }
       break;
 
@@ -168,6 +153,36 @@ function handleMessage(message: any) {
       authSessionCache.delete(context);
       break;
   }
+}
+
+async function handlePropertyInspectorMessage(context: string, payload: any) {
+  if (payload.type === 'getSecureSettings') {
+    const settings = settingsCache.get(context) || {};
+    const materialized = await secureSettingsStorage.materialize(settings);
+    settingsCache.set(context, materialized);
+    sendToPropertyInspector(context, {
+      type: 'secureSettings',
+      settings: materialized,
+    });
+    return;
+  }
+
+  const incomingSettings: Settings = payload.type === 'settingsChanged' ? payload.settings : payload;
+  if (!incomingSettings || typeof incomingSettings !== 'object') {
+    return;
+  }
+
+  const previousSettings = settingsCache.get(context) || {};
+  const sanitizedSettings = await secureSettingsStorage.sanitizeForPersistence(
+    context,
+    incomingSettings,
+    previousSettings
+  );
+  const materializedSettings = await secureSettingsStorage.materialize(sanitizedSettings);
+
+  settingsCache.set(context, materializedSettings);
+  sendEvent('setSettings', context, sanitizedSettings);
+  logMessage(`Secure settings saved for context: ${context.substring(0, 8)}...`);
 }
 
 async function handleExecuteAction(context: string, settings: Settings) {
@@ -201,6 +216,28 @@ async function handleExecuteAction(context: string, settings: Settings) {
       return;
     }
   }
+
+  settings = await secureSettingsStorage.materialize(settings);
+  settingsCache.set(context, settings);
+
+  const validation = validateSettings(settings);
+  if (!validation.valid) {
+    const message = validation.errors[0] || 'Invalid action settings';
+    logMessage(`Invalid settings: ${message}`);
+    debugLog('Settings validation failed', validation);
+    setState(context, ActionState.Error);
+    setTitle(context, 'Invalid');
+    showAlert(context);
+
+    setTimeout(() => {
+      setState(context, ActionState.Idle);
+      setTitle(context, '');
+    }, 2500);
+
+    return;
+  }
+
+  validation.warnings.forEach(warning => logMessage(`Warning: ${warning}`));
 
   // Prevent concurrent executions
   if (executionLock.get(context)) {
@@ -268,11 +305,10 @@ async function handleExecuteAction(context: string, settings: Settings) {
 
   } catch (error: any) {
     debugLog('ERROR in handleExecuteAction', {
-      message: error.message,
-      stack: error.stack,
-      error: error
+      message: toErrorMessage(error),
+      stack: error?.stack,
     });
-    logMessage(`Error: ${error.message}`);
+    logMessage(`Error: ${toErrorMessage(error)}`);
     setState(context, ActionState.Error);
     setTitle(context, 'Error!');
     showAlert(context);
@@ -382,22 +418,22 @@ async function executeProgramAction(settings: Settings) {
 
   const args = settings.programArgs || '';
   const workingDir = settings.workingDirectory || '';
+  const parsedArgs = args ? parseArgumentString(args) : [];
 
-  // Build command
-  let command = `"${programPath}"`;
-  if (args) {
-    command += ` ${args}`;
-  }
-
-  logMessage(`Executing program: ${command}`);
+  logMessage(`Executing program: ${programPath}`);
+  debugLog('Program execution prepared', {
+    programPath,
+    argumentCount: parsedArgs.length,
+    hasWorkingDirectory: !!workingDir,
+  });
 
   try {
-    const options: any = { timeout: 30000 };
+    const options: any = { timeout: 30000, windowsHide: true };
     if (workingDir) {
       options.cwd = workingDir;
     }
 
-    const { stdout, stderr } = await execAsync(command, options);
+    const { stdout, stderr } = await execFileAsync(programPath, parsedArgs, options);
 
     if (stderr && !stdout) {
       logMessage(`Program stderr: ${stderr}`);
@@ -409,8 +445,9 @@ async function executeProgramAction(settings: Settings) {
 
     logMessage('Program executed successfully');
   } catch (error: any) {
-    logMessage(`Program execution error: ${error.message}`);
-    throw new Error(`Failed to execute program: ${error.message}`);
+    debugLog('Program execution error', getProcessErrorDetails(error));
+    logMessage(`Program execution error: ${toErrorMessage(error)}`);
+    throw new Error(`Failed to execute program: ${toErrorMessage(error)}`);
   }
 }
 
@@ -424,25 +461,7 @@ async function executeHotkeyAction(settings: Settings) {
   logMessage(`Simulating hotkey: ${hotkeyKeys}`);
 
   try {
-    // Parse the hotkey to get modifiers and key
-    const parts = hotkeyKeys.split('+').map(p => p.trim().toLowerCase());
-
-    const modifiers: string[] = [];
-    let mainKey = '';
-
-    for (const part of parts) {
-      if (part === 'ctrl' || part === 'control') {
-        modifiers.push('CTRL');
-      } else if (part === 'alt') {
-        modifiers.push('ALT');
-      } else if (part === 'shift') {
-        modifiers.push('SHIFT');
-      } else if (part === 'win' || part === 'windows') {
-        modifiers.push('LWIN');
-      } else {
-        mainKey = part.toUpperCase();
-      }
-    }
+    const { modifiers, mainKey } = parseHotkeyKeys(hotkeyKeys);
 
     logMessage(`Parsed: modifiers=${modifiers.join(',')}, key=${mainKey}`);
 
@@ -474,7 +493,11 @@ $keyCodes = @{
     '5'=0x35; '6'=0x36; '7'=0x37; '8'=0x38; '9'=0x39;
     'F1'=0x70; 'F2'=0x71; 'F3'=0x72; 'F4'=0x73; 'F5'=0x74; 'F6'=0x75;
     'F7'=0x76; 'F8'=0x77; 'F9'=0x78; 'F10'=0x79; 'F11'=0x7A; 'F12'=0x7B;
-    'TAB'=0x09; 'ENTER'=0x0D; 'ESC'=0x1B; 'SPACE'=0x20;
+    'F13'=0x7C; 'F14'=0x7D; 'F15'=0x7E; 'F16'=0x7F; 'F17'=0x80; 'F18'=0x81;
+    'F19'=0x82; 'F20'=0x83; 'F21'=0x84; 'F22'=0x85; 'F23'=0x86; 'F24'=0x87;
+    'TAB'=0x09; 'ENTER'=0x0D; 'ESC'=0x1B; 'SPACE'=0x20; 'BACKSPACE'=0x08;
+    'DELETE'=0x2E; 'HOME'=0x24; 'END'=0x23; 'PAGEUP'=0x21; 'PAGEDOWN'=0x22;
+    'UP'=0x26; 'DOWN'=0x28; 'LEFT'=0x25; 'RIGHT'=0x27;
 }
 
 Start-Sleep -Milliseconds 100
@@ -500,30 +523,13 @@ ${modifiers.includes('SHIFT') ? '[KeySim]::keybd_event($VK_SHIFT, 0, [KeySim]::K
 ${modifiers.includes('CTRL') ? '[KeySim]::keybd_event($VK_CONTROL, 0, [KeySim]::KEYEVENTF_KEYUP, [UIntPtr]::Zero)' : ''}
     `.trim();
 
-    // Save script to temp file to avoid escaping issues
-    const fs = require('fs');
-    const os = require('os');
-    const tempFile = `${os.tmpdir()}\\streamdeck-hotkey-${Date.now()}.ps1`;
-
-    fs.writeFileSync(tempFile, psScript, 'utf8');
-
-    try {
-      await execAsync(`powershell.exe -ExecutionPolicy Bypass -File "${tempFile}"`, {
-        timeout: 5000
-      });
-    } finally {
-      // Clean up temp file
-      try {
-        fs.unlinkSync(tempFile);
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-    }
+    await runPowerShellScript(psScript, 'streamdeck-hotkey', 5000);
 
     logMessage('Hotkey sent successfully via keybd_event');
   } catch (error: any) {
-    logMessage(`Hotkey execution error: ${error.message}`);
-    throw new Error(`Failed to send hotkey: ${error.message}`);
+    debugLog('Hotkey execution error', getProcessErrorDetails(error));
+    logMessage(`Hotkey execution error: ${toErrorMessage(error)}`);
+    throw new Error(`Failed to send hotkey: ${toErrorMessage(error)}`);
   }
 }
 
@@ -628,29 +634,47 @@ async function executeScriptAction(settings: Settings) {
   logMessage(`Executing ${scriptType} script`);
 
   try {
-    let command: string;
+    let temp: { dir: string; filePath: string } | undefined;
+    let executable: string | undefined;
+    let args: string[] | undefined;
 
     switch (scriptType) {
       case 'powershell':
-        // Execute PowerShell script inline
-        command = `powershell.exe -ExecutionPolicy Bypass -Command "${scriptContent.replace(/"/g, '\\"')}"`;
+        temp = createTempScript('securepress-script', 'ps1', scriptContent);
+        executable = 'powershell.exe';
+        args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', temp.filePath];
         break;
 
       case 'batch':
-        // Execute batch script inline
-        command = `cmd.exe /c "${scriptContent.replace(/"/g, '\\"')}"`;
+        temp = createTempScript('securepress-script', 'cmd', scriptContent);
+        executable = 'cmd.exe';
+        args = ['/d', '/c', temp.filePath];
         break;
 
       case 'python':
-        // Execute Python script inline
-        command = `python -c "${scriptContent.replace(/"/g, '\\"')}"`;
+        temp = createTempScript('securepress-script', 'py', scriptContent);
+        executable = 'python';
+        args = [temp.filePath];
         break;
 
       default:
         throw new Error(`Unsupported script type: ${scriptType}`);
     }
 
-    const { stdout, stderr } = await execAsync(command, { timeout: 30000 });
+    let stdout = '';
+    let stderr = '';
+    try {
+      if (!executable || !args) {
+        throw new Error(`Unsupported script type: ${scriptType}`);
+      }
+      const result = await execFileAsync(executable, args, { timeout: 30000, windowsHide: true });
+      stdout = result.stdout;
+      stderr = result.stderr;
+    } finally {
+      if (temp) {
+        cleanupTempDir(temp.dir);
+      }
+    }
 
     if (stderr && !stdout) {
       logMessage(`Script stderr: ${stderr}`);
@@ -662,8 +686,9 @@ async function executeScriptAction(settings: Settings) {
 
     logMessage('Script executed successfully');
   } catch (error: any) {
-    logMessage(`Script execution error: ${error.message}`);
-    throw new Error(`Failed to execute script: ${error.message}`);
+    debugLog('Script execution error', getProcessErrorDetails(error));
+    logMessage(`Script execution error: ${toErrorMessage(error)}`);
+    throw new Error(`Failed to execute script: ${toErrorMessage(error)}`);
   }
 }
 
@@ -679,21 +704,17 @@ async function executeTextAction(settings: Settings) {
   logMessage(`Typing text using mode: ${textMode}`);
 
   try {
-    const fs = require('fs');
-    const os = require('os');
-    const tempFile = `${os.tmpdir()}\\streamdeck-text-${Date.now()}.ps1`;
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streamdeck-text-'));
+    const textFile = path.join(tempDir, 'input.txt');
+    fs.writeFileSync(textFile, textContent, 'utf8');
 
     let psScript = '';
-
     if (textMode === 'paste') {
       // Mode 1: Copy to clipboard and paste with Ctrl+V
-      const escapedText = textContent.replace(/'/g, "''");
-
       psScript = `
 Add-Type -AssemblyName System.Windows.Forms
-[System.Windows.Forms.Clipboard]::SetText(@'
-${escapedText}
-'@)
+$text = [System.IO.File]::ReadAllText('${escapePowerShellSingleQuotedString(textFile)}')
+[System.Windows.Forms.Clipboard]::SetText($text)
 Start-Sleep -Milliseconds 100
 
 # Simulate Ctrl+V
@@ -724,7 +745,8 @@ Start-Sleep -Milliseconds 50
       psScript = `
 Add-Type -AssemblyName System.Windows.Forms
 Start-Sleep -Milliseconds 100
-[System.Windows.Forms.SendKeys]::SendWait('${textContent.replace(/'/g, "''")}')
+$text = [System.IO.File]::ReadAllText('${escapePowerShellSingleQuotedString(textFile)}')
+[System.Windows.Forms.SendKeys]::SendWait($text)
       `.trim();
     }
 
@@ -736,26 +758,23 @@ Start-Sleep -Milliseconds 100
       `;
     }
 
-    // Save script to temp file
-    fs.writeFileSync(tempFile, psScript, 'utf8');
-
     try {
-      await execAsync(`powershell.exe -ExecutionPolicy Bypass -File "${tempFile}"`, {
-        timeout: 10000
-      });
+      const scriptPath = path.join(tempDir, 'input.ps1');
+      fs.writeFileSync(scriptPath, psScript, 'utf8');
+      await execFileAsync(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath],
+        { timeout: 10000, windowsHide: true }
+      );
       logMessage('Text input successful');
     } finally {
-      // Clean up temp file
-      try {
-        fs.unlinkSync(tempFile);
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      cleanupTempDir(tempDir);
     }
 
   } catch (error: any) {
-    logMessage(`Text input error: ${error.message}`);
-    throw new Error(`Failed to input text: ${error.message}`);
+    debugLog('Text input error', getProcessErrorDetails(error));
+    logMessage(`Text input error: ${toErrorMessage(error)}`);
+    throw new Error(`Failed to input text: ${toErrorMessage(error)}`);
   }
 }
 
@@ -766,7 +785,12 @@ async function executeHttpAction(settings: Settings) {
   const body = settings.httpBody;
   const headersStr = settings.httpHeaders;
 
-  debugLog('executeHttpAction variables', { url, method, body, headersStr });
+  debugLog('executeHttpAction variables', {
+    url,
+    method,
+    hasBody: !!body,
+    hasHeaders: !!headersStr,
+  });
 
   if (!url) {
     debugLog('URL is missing, throwing error');
@@ -807,13 +831,20 @@ async function executeHttpAction(settings: Settings) {
 
     if (!response.ok) {
       logMessage(`HTTP request failed: ${response.status} ${response.statusText}`);
-      logMessage(`Response: ${responseText.substring(0, 200)}`);
+      debugLog('HTTP error response received', {
+        status: response.status,
+        statusText: response.statusText,
+        responseLength: responseText.length,
+      });
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     logMessage(`HTTP request successful: ${response.status}`);
     if (responseText) {
-      logMessage(`Response: ${responseText.substring(0, 200)}`);
+      debugLog('HTTP response received', {
+        status: response.status,
+        responseLength: responseText.length,
+      });
     }
 
     // Show response popup if enabled
@@ -828,15 +859,16 @@ async function executeHttpAction(settings: Settings) {
     }
 
   } catch (error: any) {
-    logMessage(`HTTP request error: ${error.message}`);
-    throw new Error(`Failed to make HTTP request: ${error.message}`);
+    debugLog('HTTP request error', getProcessErrorDetails(error));
+    logMessage(`HTTP request error: ${toErrorMessage(error)}`);
+    throw new Error(`Failed to make HTTP request: ${toErrorMessage(error)}`);
   }
 }
 
 async function showResponsePopup(method: string, url: string, status: number, responseText: string) {
-  const fs = require('fs');
-  const os = require('os');
-  const tempFile = `${os.tmpdir()}\\streamdeck-http-response-${Date.now()}.ps1`;
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'streamdeck-http-response-'));
+  const messageFile = path.join(tempDir, 'message.txt');
+  const scriptFile = path.join(tempDir, 'popup.ps1');
 
   try {
     logMessage('showResponsePopup function called');
@@ -857,44 +889,35 @@ Status: ${status}
 Response:
 ${displayText}`;
 
-    // Escape single quotes for PowerShell
-    const escapedMessage = message.replace(/'/g, "''");
+    fs.writeFileSync(messageFile, message, 'utf8');
 
     // Create PowerShell script that shows the popup
     const psScript = `
 Add-Type -AssemblyName System.Windows.Forms
-[System.Windows.Forms.MessageBox]::Show(@'
-${escapedMessage}
-'@, 'HTTP Response', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+$message = [System.IO.File]::ReadAllText('${escapePowerShellSingleQuotedString(messageFile)}')
+[System.Windows.Forms.MessageBox]::Show($message, 'HTTP Response', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
     `.trim();
 
-    // Save script to temp file
-    fs.writeFileSync(tempFile, psScript, 'utf8');
+    fs.writeFileSync(scriptFile, psScript, 'utf8');
 
     debugLog('Executing PowerShell command for popup');
     logMessage('Executing PowerShell MessageBox command...');
 
     try {
-      const result = await execAsync(`powershell.exe -ExecutionPolicy Bypass -File "${tempFile}"`, { timeout: 5000 });
+      const result = await execFileAsync(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptFile],
+        { timeout: 5000, windowsHide: true }
+      );
       debugLog('PowerShell command result', result);
       logMessage('PowerShell MessageBox command executed successfully');
     } finally {
-      // Clean up temp file
-      try {
-        fs.unlinkSync(tempFile);
-      } catch (e) {
-        // Ignore cleanup errors
-      }
+      cleanupTempDir(tempDir);
     }
   } catch (error: any) {
-    debugLog('showResponsePopup ERROR', { message: error.message, stack: error.stack });
-    logMessage(`Failed to show response popup: ${error.message}`);
-    // Clean up temp file on error too
-    try {
-      fs.unlinkSync(tempFile);
-    } catch (e) {
-      // Ignore cleanup errors
-    }
+    debugLog('showResponsePopup ERROR', getProcessErrorDetails(error));
+    logMessage(`Failed to show response popup: ${toErrorMessage(error)}`);
+    cleanupTempDir(tempDir);
     // Don't throw - popup is optional, don't fail the whole request
   }
 }
@@ -976,7 +999,7 @@ function playSound(soundType: 'success' | 'error') {
       ? '[System.Media.SystemSounds]::Asterisk.Play()'
       : '[System.Media.SystemSounds]::Exclamation.Play()';
 
-  exec(`powershell -Command "${soundCommand}"`, (error) => {
+  execFile('powershell.exe', ['-NoProfile', '-Command', soundCommand], { windowsHide: true }, (error) => {
     if (error) {
       logMessage(`Failed to play sound: ${error.message}`);
     }
@@ -987,29 +1010,47 @@ function sendEvent(event: string, context?: string, payload?: any) {
   const message: any = { event };
   if (context) message.context = context;
   if (payload) message.payload = payload;
-  ws.send(JSON.stringify(message));
-}
-
-// Parse command line arguments and start
-const args = process.argv.slice(2);
-const params: { [key: string]: string } = {};
-
-for (let i = 0; i < args.length; i += 2) {
-  const key = args[i].replace(/^-+/, '');
-  const value = args[i + 1];
-  if (value) {
-    params[key] = value;
+  if (ws && ws.readyState === WebSocketLib.WebSocket.OPEN) {
+    ws.send(JSON.stringify(message));
   }
 }
 
-if (params.port && params.pluginUUID && params.registerEvent && params.info) {
-  connectElgatoStreamDeckSocket(
-    params.port,
-    params.pluginUUID,
-    params.registerEvent,
-    params.info
-  );
-} else {
-  console.error('Missing required arguments:', params);
-  process.exit(1);
+function sendToPropertyInspector(context: string, payload: any) {
+  if (ws && ws.readyState === WebSocketLib.WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      event: 'sendToPropertyInspector',
+      action: executeActionUUID,
+      context,
+      payload,
+    }));
+  }
+}
+
+// Parse command line arguments and start
+export function startPluginFromArgs(argv: string[] = process.argv.slice(2)) {
+  const params: { [key: string]: string } = {};
+
+  for (let i = 0; i < argv.length; i += 2) {
+    const key = argv[i].replace(/^-+/, '');
+    const value = argv[i + 1];
+    if (value) {
+      params[key] = value;
+    }
+  }
+
+  if (params.port && params.pluginUUID && params.registerEvent && params.info) {
+    connectElgatoStreamDeckSocket(
+      params.port,
+      params.pluginUUID,
+      params.registerEvent,
+      params.info
+    );
+  } else {
+    console.error('Missing required arguments:', params);
+    process.exit(1);
+  }
+}
+
+if (require.main === module) {
+  startPluginFromArgs();
 }

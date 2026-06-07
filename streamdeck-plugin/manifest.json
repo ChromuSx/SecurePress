@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+  "Name": "SecurePress",
+  "Version": "1.1.0.0",
+  "Author": "ChromuSx",
+  "Description": "Add biometric security to your Stream Deck with Windows Hello authentication. Lock sensitive actions behind fingerprint, facial recognition, or PIN verification. Execute programs, trigger hotkeys, run PowerShell/Python scripts, send HTTP requests, and input text behind an explicit authentication step.",
+  "URL": "https://github.com/ChromuSx/SecurePress",
+  "SupportURL": "https://github.com/ChromuSx/SecurePress/issues",
+  "Icon": "imgs/plugin-icon",
+  "CodePath": "bin/plugin.js",
+  "PropertyInspectorPath": "ui/property-inspector.html",
+  "SDKVersion": 3,
+  "Nodejs": {
+    "Version": "20"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "6.9"
+  },
+  "UUID": "com.securepress.action",
+  "Category": "SecurePress",
+  "CategoryIcon": "imgs/category-icon",
+  "Actions": [
+    {
+      "Name": "Secure Action",
+      "UUID": "com.securepress.action.execute",
+      "Icon": "imgs/action-icon",
+      "Tooltip": "Execute an action after Windows Hello authentication",
+      "States": [
+        {
+          "Image": "imgs/key-idle",
+          "Name": "Idle"
+        },
+        {
+          "Image": "imgs/key-authenticating",
+          "Name": "Authenticating"
+        },
+        {
+          "Image": "imgs/key-success",
+          "Name": "Success"
+        },
+        {
+          "Image": "imgs/key-error",
+          "Name": "Error"
+        }
+      ],
+      "PropertyInspectorPath": "ui/property-inspector.html",
+      "SupportedInMultiActions": false,
+      "UserTitleEnabled": true
+    }
+  ]
+}

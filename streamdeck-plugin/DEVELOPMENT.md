@@ -13,7 +13,7 @@ npm install
 ```bash
 npm run build
 ```
-Compiles TypeScript and copies assets to `com.securepress.action.sdPlugin/`
+Publishes the Windows Hello helper, compiles TypeScript, and copies assets to `com.securepress.action.sdPlugin/`
 
 #### 2. Package for Distribution
 ```bash
@@ -42,6 +42,12 @@ npm run install:local
 npm run watch
 ```
 Auto-compiles TypeScript on file changes (still need to reinstall manually)
+
+#### 6. Tests
+```bash
+npm test
+```
+Compiles TypeScript and runs the automated Node test suite.
 
 ## 📦 Distribution
 
@@ -75,7 +81,13 @@ streamdeck-plugin/
 ├── src/
 │   ├── plugin.ts              # Main plugin code
 │   ├── windows-hello-auth.ts  # Windows Hello authentication
+│   ├── secure-settings.ts     # DPAPI-backed settings storage
+│   ├── validation.ts          # Runtime validation
+│   ├── action-utils.ts        # Shared parsing/process helpers
 │   └── debug-logger.ts        # Debug logging
+├── native/
+│   └── SecurePress.AuthHelper/ # Windows Hello foreground helper
+├── test/                       # Automated tests
 ├── ui/
 │   └── property-inspector.html # Settings UI
 ├── imgs/                       # Icon assets
@@ -128,9 +140,11 @@ Add case in `executeSequenceAction()` switch to support new type in sequences.
 - [ ] Test all action types (program, hotkey, script, HTTP, text, sequence)
 - [ ] Test Windows Hello authentication
 - [ ] Test with different Stream Deck models
+- [ ] Run `npm test`
 - [ ] Update version in `manifest.json`
 - [ ] Update version in `package.json`
+- [ ] Update `CHANGELOG.md`
 - [ ] Test installation via `.streamDeckPlugin` file
 - [ ] Create release package: `npm run build:package`
 - [ ] Test the packaged version
-- [ ] Create GitHub release with `.streamDeckPlugin` file
+- [ ] Create a `v*` Git tag and verify GitHub Actions attaches the `.streamDeckPlugin` file to the release
