@@ -25,6 +25,24 @@
   <strong>🔐 SecurePress is a Stream Deck plugin that adds Windows Hello biometric authentication to protect sensitive actions. Lock your Stream Deck buttons behind fingerprint, facial recognition, or PIN verification - perfect for streamers and power users who need enterprise-grade security for critical operations.</strong>
 </p>
 
+## 🎮 Stream Deck Plugin
+
+Protect Stream Deck actions with a Windows Hello gate before launching apps,
+running scripts, sending HTTP requests, triggering hotkeys, or entering text.
+
+https://github.com/user-attachments/assets/5349f7a4-5c90-45ef-bbdf-f1cd8b5bf2bc
+
+<sub>▶ Press play for sound. Not rendering (e.g. outside GitHub)? <a href="streamdeck-plugin/marketplace/promo.mp4">Download the MP4</a>.</sub>
+
+<div align="center">
+  <img src="streamdeck-plugin/marketplace/promo-thumbnail.png" alt="SecurePress protects Stream Deck actions with Windows Hello" width="900">
+</div>
+
+<div align="center">
+  <img src="streamdeck-plugin/marketplace/gallery-hero.png" alt="One press, then verify with Windows Hello" width="49%">
+  <img src="streamdeck-plugin/marketplace/gallery-property-inspector.png" alt="SecurePress property inspector configuration" width="49%">
+</div>
+
 ## ✨ Features
 
 🔐 **Biometric Security** - Lock actions behind Windows Hello authentication (fingerprint, facial recognition, or PIN)
