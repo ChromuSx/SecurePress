@@ -30,9 +30,9 @@
 Protect Stream Deck actions with a Windows Hello gate before launching apps,
 running scripts, sending HTTP requests, triggering hotkeys, or entering text.
 
-https://github.com/user-attachments/assets/5349f7a4-5c90-45ef-bbdf-f1cd8b5bf2bc
+https://github.com/user-attachments/assets/9f7193c6-1214-4ec8-9992-e6d2bcdd7b1c
 
-<sub>▶ Press play for sound. Not rendering (e.g. outside GitHub)? <a href="streamdeck-plugin/marketplace/promo.mp4">Download the MP4</a>.</sub>
+<sub>▶ Press play for sound. Not rendering (e.g. outside GitHub)? <a href="https://github.com/user-attachments/assets/9f7193c6-1214-4ec8-9992-e6d2bcdd7b1c">Download the MP4</a>.</sub>
 
 <div align="center">
   <img src="streamdeck-plugin/marketplace/promo-thumbnail.png" alt="SecurePress protects Stream Deck actions with Windows Hello" width="900">
