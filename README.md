@@ -43,6 +43,14 @@ https://github.com/user-attachments/assets/5349f7a4-5c90-45ef-bbdf-f1cd8b5bf2bc
   <img src="streamdeck-plugin/marketplace/gallery-property-inspector.png" alt="SecurePress property inspector configuration" width="49%">
 </div>
 
+### Real Property Inspector Screenshots
+
+<div align="center">
+  <img src="streamdeck-plugin/marketplace/inspector-program.png" alt="SecurePress real property inspector for protected program launches" width="900">
+  <img src="streamdeck-plugin/marketplace/inspector-http.png" alt="SecurePress real property inspector for protected HTTP requests" width="900">
+  <img src="streamdeck-plugin/marketplace/inspector-text.png" alt="SecurePress real property inspector for protected text input" width="900">
+</div>
+
 ## ✨ Features
 
 🔐 **Biometric Security** - Lock actions behind Windows Hello authentication (fingerprint, facial recognition, or PIN)

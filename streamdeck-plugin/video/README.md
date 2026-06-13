@@ -9,7 +9,7 @@ Generated marketplace assets:
 - `../marketplace/promo-thumbnail.png` - 1920x960 promo thumbnail
 - `../marketplace/gallery-hero.png` - 1920x960 gallery image
 - `../marketplace/gallery-property-inspector.png` - 1920x960 gallery image
-- `../marketplace/promo.mp4` - 1920x1080 H.264 video, about 24 seconds
+- `../marketplace/promo.mp4` - 1920x1080 H.264 video, about 35 seconds
 
 ## Setup
 
@@ -38,10 +38,12 @@ submitting the listing.
 | Time | Beat |
 |---|---|
 | 0-4s | SecurePress key on a Stream Deck asks for explicit approval |
-| 4-8s | Windows Hello confirmation appears above the workflow |
-| 8-13s | The approved action unlocks and runs |
-| 13-18s | Protected action types are shown: app, script, hotkey, HTTP, text |
-| 18-24s | Closing frame: one press, then verify |
+| 5-13s | The Stream Deck setup and protected action configuration breathe on screen |
+| 13-21s | Windows Hello confirmation appears above the workflow |
+| 21-24.3s | Real Property Inspector: protected program launch setup |
+| 24.3-27.6s | Real Property Inspector: HTTP request setup with DPAPI-backed data |
+| 27.6-31s | Real Property Inspector: secure text input setup |
+| 31-35s | Closing frame: one press, then verify |
 
 ## Structure
 
@@ -51,5 +53,16 @@ src/
   SecurePressPromo.tsx  Main timeline plus static marketplace frames
 public/
   *.png                 Plugin icon, logo, action icon and key-state assets
+  *.mp3                 Licensed music used by the promo video
   keys/*.png            Real Stream Deck key-state art
+  inspector-*.png       Real Property Inspector screenshots used in the video
 ```
+
+## Music
+
+The promo video uses `securepress-mixkit-close-up.mp3`, downloaded from Mixkit:
+
+- Track: `Close Up`
+- Artist: `Michael Ramir C.`
+- Source: `https://mixkit.co/free-stock-music/tag/technology/`
+- License: `Mixkit Stock Music Free License`

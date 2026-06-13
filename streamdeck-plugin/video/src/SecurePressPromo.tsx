@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Audio,
   Img,
   Sequence,
   interpolate,
@@ -29,6 +30,9 @@ const COLORS = {
 
 const FONT =
   '"Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+
+const FPS = 60;
+const INSPECTOR_SHOT_FRAMES = 200;
 
 const keyAssets = {
   idle: "keys/key-idle.png",
@@ -575,12 +579,12 @@ const SceneSetup: React.FC = () => {
 
 const SceneAuth: React.FC = () => {
   const frame = useCurrentFrame();
-  const promptIn = interpolate(frame, [28, 58], [0, 1], {
+  const promptIn = interpolate(frame, [40, 88], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const verified = frame > 164;
-  const keyState: KeyState = frame < 42 ? "idle" : verified ? "success" : "authenticating";
+  const verified = frame > 248;
+  const keyState: KeyState = frame < 58 ? "idle" : verified ? "success" : "authenticating";
   return (
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", fontFamily: FONT }}>
       <div style={{ display: "flex", alignItems: "center", gap: 84 }}>
@@ -641,6 +645,96 @@ const SceneFeatures: React.FC = () => {
   );
 };
 
+const realInspectorShots = [
+  {
+    title: "Program launch",
+    image: "inspector-program.png",
+  },
+  {
+    title: "HTTP request",
+    image: "inspector-http.png",
+  },
+  {
+    title: "Text input",
+    image: "inspector-text.png",
+  },
+];
+
+const SceneRealInspector: React.FC = () => {
+  const frame = useCurrentFrame();
+  const shotIndex = Math.min(2, Math.floor(frame / INSPECTOR_SHOT_FRAMES));
+  const shot = realInspectorShots[shotIndex];
+  const localFrame = frame - shotIndex * INSPECTOR_SHOT_FRAMES;
+  const enter = spring({
+    frame: localFrame,
+    fps: FPS,
+    config: { damping: 24, mass: 0.75 },
+  });
+  const fade = interpolate(localFrame, [0, 30, 170, INSPECTOR_SHOT_FRAMES], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", fontFamily: FONT }}>
+      <div
+        style={{
+          position: "absolute",
+          top: 52,
+          left: 110,
+          right: 110,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Badge>Real Property Inspector</Badge>
+        <div style={{ display: "flex", gap: 12 }}>
+          {realInspectorShots.map((item, index) => (
+            <div
+              key={item.title}
+              style={{
+                width: 13,
+                height: 13,
+                borderRadius: "50%",
+                background: index === shotIndex ? COLORS.cyan : "rgba(255,255,255,0.28)",
+                boxShadow: index === shotIndex ? `0 0 24px ${COLORS.cyan}` : undefined,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      <Img
+        src={staticFile(shot.image)}
+        style={{
+          width: 1680,
+          height: 840,
+          objectFit: "cover",
+          borderRadius: 28,
+          border: "1px solid rgba(255,255,255,0.18)",
+          boxShadow: "0 46px 110px rgba(0,0,0,0.45)",
+          opacity: fade,
+          transform: `translateY(${(1 - enter) * 28}px) scale(${0.98 + enter * 0.02})`,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: 54,
+          left: 122,
+          color: COLORS.text,
+          fontSize: 28,
+          fontWeight: 900,
+          opacity: fade,
+          textShadow: "0 3px 18px rgba(0,0,0,0.55)",
+        }}
+      >
+        {shot.title} configuration
+      </div>
+    </AbsoluteFill>
+  );
+};
+
 const Closing: React.FC = () => (
   <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", fontFamily: FONT }}>
     <Img src={staticFile("plugin-icon-large.png")} style={{ width: 210, height: 210, marginBottom: 32 }} />
@@ -660,7 +754,11 @@ const Closing: React.FC = () => (
 
 export const SecurePressPromo: React.FC = () => {
   const frame = useCurrentFrame();
-  const heroOpacity = interpolate(frame, [0, 24, 190, 230], [1, 1, 1, 0], {
+  const heroOpacity = interpolate(frame, [0, 36, 250, 300], [1, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const musicVolume = interpolate(frame, [0, 90, 1980, 2100], [0, 0.48, 0.48, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -668,7 +766,8 @@ export const SecurePressPromo: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: COLORS.bgBottom }}>
       <Background />
-      <Sequence from={0} durationInFrames={240}>
+      <Audio src={staticFile("securepress-mixkit-close-up.mp3")} volume={musicVolume} />
+      <Sequence from={0} durationInFrames={320}>
         <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", opacity: heroOpacity, fontFamily: FONT }}>
           <div style={{ display: "flex", alignItems: "center", gap: 86 }}>
             <Img src={staticFile("plugin-icon-large.png")} style={{ width: 360, height: 360 }} />
@@ -685,16 +784,16 @@ export const SecurePressPromo: React.FC = () => {
           </div>
         </AbsoluteFill>
       </Sequence>
-      <Sequence from={220} durationInFrames={360}>
+      <Sequence from={300} durationInFrames={520}>
         <SceneSetup />
       </Sequence>
-      <Sequence from={560} durationInFrames={360}>
+      <Sequence from={780} durationInFrames={520}>
         <SceneAuth />
       </Sequence>
-      <Sequence from={900} durationInFrames={330}>
-        <SceneFeatures />
+      <Sequence from={1260} durationInFrames={600}>
+        <SceneRealInspector />
       </Sequence>
-      <Sequence from={1210} durationInFrames={230}>
+      <Sequence from={1860} durationInFrames={240}>
         <Closing />
       </Sequence>
     </AbsoluteFill>

@@ -13,7 +13,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="SecurePressPromo"
         component={SecurePressPromo}
-        durationInFrames={1440}
+        durationInFrames={2100}
         fps={60}
         width={1920}
         height={1080}

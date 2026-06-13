@@ -20,7 +20,6 @@
     "prebuild": "npm run icons:logo && npm run icons"
   },
   "devDependencies": {
-    "@elgato/streamdeck": "^1.0.0",
     "@types/node": "^20.0.0",
     "@types/ws": "^8.18.1",
     "adm-zip": "^0.5.16",

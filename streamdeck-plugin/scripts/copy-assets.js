@@ -146,6 +146,10 @@ if (fs.existsSync(nodeModulesSource)) {
 }
 
 function copyRecursive(src, dest) {
+  if (path.basename(src) === '.history') {
+    return;
+  }
+
   const stat = fs.statSync(src);
 
   if (stat.isDirectory()) {
